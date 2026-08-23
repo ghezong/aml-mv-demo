@@ -1,0 +1,6 @@
+metric,value,threshold,status
+alert_count,88.0,> 0,passed
+mean_ml_arr_score,0.3629,monitor,monitor
+urgent_band_count,15.0,capacity reviewed,monitor
+score_min,0.0529,0 to 1,passed
+score_max,0.9999,0 to 1,passed

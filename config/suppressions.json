@@ -1,0 +1,18 @@
+{
+  "suppression_policy_id": "SUP-LOW-RISK-1.0",
+  "effective_start": "2026-01-01",
+  "effective_end": null,
+  "approval_reference": "DEMO-CONTROL-APPROVAL",
+  "description": "Illustrative low-risk, low-evidence suppression policy. Raw triggers remain retained for below-the-line testing.",
+  "criteria": {
+    "behavioral_crr_tier": "low",
+    "maximum_rule_severity": 3,
+    "maximum_evidence_count_exclusive": 5
+  },
+  "controls": [
+    "raw_trigger_retention",
+    "below_the_line_sampling",
+    "monthly_suppression_rate_monitoring",
+    "annual_policy_reapproval"
+  ]
+}

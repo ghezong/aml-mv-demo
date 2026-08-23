@@ -1,0 +1,5 @@
+control_id,control,passed,exception_count
+DQ-CUST-001,customer_id_not_null,True,0
+DQ-ACCT-001,account_customer_referential_integrity,True,0
+DQ-TXN-001,transaction_account_referential_integrity,True,0
+DQ-TXN-002,positive_transaction_amounts,True,0
