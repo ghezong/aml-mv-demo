@@ -4,16 +4,28 @@ import hashlib
 
 import pandas as pd
 
+from aml_mv_demo.config import active_rule_ids, load_risk_indicator_config, load_rule_config, load_suppression_config, rule_by_id
 from aml_mv_demo.features import normalize_transactions
 
 
-RULE_VERSION = "TM-RULES-2.0"
-SUPPRESSION_VERSION = "SUP-LOW-RISK-1.0"
+RULE_VERSION = "TM-RULES-2.1"
+IMPLEMENTED_RULE_IDS = {"TM-STRUCT-001", "TM-VEL-001", "TM-GEO-001", "TM-RAPID-001", "TM-FLOW-001", "TM-NET-001"}
 
 
-def evaluate_rules(customers: pd.DataFrame, transactions: pd.DataFrame, behavioral_crr: pd.DataFrame, as_of_timestamp: str | pd.Timestamp | None = None) -> pd.DataFrame:
+def evaluate_rules(
+    customers: pd.DataFrame,
+    transactions: pd.DataFrame,
+    behavioral_crr: pd.DataFrame,
+    as_of_timestamp: str | pd.Timestamp | None = None,
+    rule_config: dict | None = None,
+    suppression_config: dict | None = None,
+    risk_indicator_config: dict | None = None,
+) -> pd.DataFrame:
     """Evaluate deterministic AML rules and retain triggered and suppressed results."""
-    txns = normalize_transactions(transactions)
+    rule_config = rule_config or load_rule_config()
+    suppression_config = suppression_config or load_suppression_config()
+    risk_indicator_config = risk_indicator_config or load_risk_indicator_config()
+    txns = normalize_transactions(transactions, risk_indicator_config=risk_indicator_config)
     if as_of_timestamp is None:
         as_of = txns["timestamp_utc"].max()
     else:
@@ -23,16 +35,24 @@ def evaluate_rules(customers: pd.DataFrame, transactions: pd.DataFrame, behavior
         else:
             as_of = as_of.tz_convert("UTC")
 
-    eligible_txns = txns[(txns["status"] == "settled") & (txns["timestamp_utc"] <= as_of)].copy()
+    eligible_statuses = set(risk_indicator_config["rule_eligible_statuses"])
+    eligible_txns = txns[txns["status"].isin(eligible_statuses) & (txns["timestamp_utc"] <= as_of)].copy()
     customer_context = customers.merge(behavioral_crr, on="customer_id", how="left")
 
     results = []
-    results.extend(_structuring_rule(eligible_txns, customer_context, as_of))
-    results.extend(_high_velocity_rule(eligible_txns, customer_context, as_of))
-    results.extend(_high_risk_geo_rule(eligible_txns, customer_context, as_of))
-    results.extend(_rapid_movement_rule(eligible_txns, customer_context, as_of))
-    results.extend(_flow_through_rule(eligible_txns, customer_context, as_of))
-    results.extend(_network_hub_rule(eligible_txns, customer_context, as_of))
+    configured_rule_ids = active_rule_ids(rule_config)
+    if "TM-STRUCT-001" in configured_rule_ids:
+        results.extend(_structuring_rule(eligible_txns, customer_context, as_of, rule_by_id(rule_config, "TM-STRUCT-001"), suppression_config))
+    if "TM-VEL-001" in configured_rule_ids:
+        results.extend(_high_velocity_rule(eligible_txns, customer_context, as_of, rule_by_id(rule_config, "TM-VEL-001"), suppression_config))
+    if "TM-GEO-001" in configured_rule_ids:
+        results.extend(_high_risk_geo_rule(eligible_txns, customer_context, as_of, rule_by_id(rule_config, "TM-GEO-001"), suppression_config, risk_indicator_config))
+    if "TM-RAPID-001" in configured_rule_ids:
+        results.extend(_rapid_movement_rule(eligible_txns, customer_context, as_of, rule_by_id(rule_config, "TM-RAPID-001"), suppression_config))
+    if "TM-FLOW-001" in configured_rule_ids:
+        results.extend(_flow_through_rule(eligible_txns, customer_context, as_of, rule_by_id(rule_config, "TM-FLOW-001"), suppression_config))
+    if "TM-NET-001" in configured_rule_ids:
+        results.extend(_network_hub_rule(eligible_txns, customer_context, as_of, rule_by_id(rule_config, "TM-NET-001"), suppression_config))
     return pd.DataFrame(results)
 
 
@@ -53,28 +73,32 @@ def consolidate_alerts(rule_results: pd.DataFrame) -> pd.DataFrame:
     return grouped
 
 
-def _structuring_rule(txns: pd.DataFrame, customers: pd.DataFrame, as_of: pd.Timestamp) -> list[dict]:
-    window_txns = _window(txns, as_of, 7)
-    near_threshold = window_txns[(window_txns["amount_usd_gross"] >= 9_000) & (window_txns["amount_usd_gross"] < 10_000) & (window_txns["currency"] == "USD")]
+def _structuring_rule(txns: pd.DataFrame, customers: pd.DataFrame, as_of: pd.Timestamp, rule: dict, suppression: dict) -> list[dict]:
+    thresholds = rule["thresholds"]
+    window_txns = _window(txns, as_of, rule["lookback_days"])
+    near_threshold = window_txns[(window_txns["amount_usd_gross"] >= thresholds["lower_usd"]) & (window_txns["amount_usd_gross"] < thresholds["upper_usd"]) & (window_txns["currency"] == "USD")]
     counts = _aggregate_evidence(near_threshold)
-    return [_result(row, "TM-STRUCT-001", "threshold_avoidance", "Potential threshold avoidance", 4, row["evidence_count"] >= 2, customers, as_of, 7) for row in counts.to_dict("records")]
+    return [_result(row, rule, row["evidence_count"] >= thresholds["minimum_count"], customers, as_of, suppression) for row in counts.to_dict("records")]
 
 
-def _high_velocity_rule(txns: pd.DataFrame, customers: pd.DataFrame, as_of: pd.Timestamp) -> list[dict]:
-    window_txns = _window(txns, as_of, 1)
+def _high_velocity_rule(txns: pd.DataFrame, customers: pd.DataFrame, as_of: pd.Timestamp, rule: dict, suppression: dict) -> list[dict]:
+    thresholds = rule["thresholds"]
+    window_txns = _window(txns, as_of, rule["lookback_days"])
     counts = _aggregate_evidence(window_txns)
-    return [_result(row, "TM-VEL-001", "velocity", "Unusual 24-hour transaction velocity", 3, row["evidence_count"] >= 8, customers, as_of, 1) for row in counts.to_dict("records")]
+    return [_result(row, rule, row["evidence_count"] >= thresholds["minimum_count"], customers, as_of, suppression) for row in counts.to_dict("records")]
 
 
-def _high_risk_geo_rule(txns: pd.DataFrame, customers: pd.DataFrame, as_of: pd.Timestamp) -> list[dict]:
-    window_txns = _window(txns, as_of, 30)
-    high_risk_geo = window_txns[window_txns["counterparty_country"].isin(["BR", "MX", "PA"])]
+def _high_risk_geo_rule(txns: pd.DataFrame, customers: pd.DataFrame, as_of: pd.Timestamp, rule: dict, suppression: dict, risk_indicator_config: dict) -> list[dict]:
+    thresholds = rule["thresholds"]
+    window_txns = _window(txns, as_of, rule["lookback_days"])
+    high_risk_geo = window_txns[window_txns["counterparty_country"].isin(risk_indicator_config["high_risk_countries"])]
     counts = _aggregate_evidence(high_risk_geo)
-    return [_result(row, "TM-GEO-001", "high_risk_geography", "Higher-risk geography exposure", 3, row["evidence_count"] >= 4, customers, as_of, 30) for row in counts.to_dict("records")]
+    return [_result(row, rule, row["evidence_count"] >= thresholds["minimum_count"], customers, as_of, suppression) for row in counts.to_dict("records")]
 
 
-def _rapid_movement_rule(txns: pd.DataFrame, customers: pd.DataFrame, as_of: pd.Timestamp) -> list[dict]:
-    window_txns = _window(txns, as_of, 3)
+def _rapid_movement_rule(txns: pd.DataFrame, customers: pd.DataFrame, as_of: pd.Timestamp, rule: dict, suppression: dict) -> list[dict]:
+    thresholds = rule["thresholds"]
+    window_txns = _window(txns, as_of, rule["lookback_days"])
     rows = []
     for customer_id, group in window_txns.groupby("customer_id"):
         inbound_amount = group.loc[group["direction"] == "inbound", "amount_usd_gross"].sum()
@@ -88,15 +112,16 @@ def _rapid_movement_rule(txns: pd.DataFrame, customers: pd.DataFrame, as_of: pd.
                 "evidence_count": len(evidence_ids),
                 "total_amount": outbound_amount,
                 "evidence_transaction_ids": ";".join(evidence_ids),
-                "threshold": "outbound/inbound>=0.80 and inbound>=5000",
-                "triggered": outbound_amount / inbound_amount >= 0.80 and inbound_amount >= 5_000,
+                "threshold": f"outbound/inbound>={thresholds['minimum_outbound_to_inbound_ratio']} and inbound>={thresholds['minimum_inbound_usd']}",
+                "triggered": outbound_amount / inbound_amount >= thresholds["minimum_outbound_to_inbound_ratio"] and inbound_amount >= thresholds["minimum_inbound_usd"],
             }
         )
-    return [_result(row, "TM-RAPID-001", "rapid_movement", "Rapid movement of funds", 5, row["triggered"], customers, as_of, 3) for row in rows]
+    return [_result(row, rule, row["triggered"], customers, as_of, suppression) for row in rows]
 
 
-def _flow_through_rule(txns: pd.DataFrame, customers: pd.DataFrame, as_of: pd.Timestamp) -> list[dict]:
-    window_txns = _window(txns, as_of, 30)
+def _flow_through_rule(txns: pd.DataFrame, customers: pd.DataFrame, as_of: pd.Timestamp, rule: dict, suppression: dict) -> list[dict]:
+    thresholds = rule["thresholds"]
+    window_txns = _window(txns, as_of, rule["lookback_days"])
     rows = []
     for customer_id, group in window_txns.groupby("customer_id"):
         inbound_amount = group.loc[group["direction"] == "inbound", "amount_usd_gross"].sum()
@@ -109,20 +134,21 @@ def _flow_through_rule(txns: pd.DataFrame, customers: pd.DataFrame, as_of: pd.Ti
                 "evidence_count": len(evidence_ids),
                 "total_amount": inbound_amount + outbound_amount,
                 "evidence_transaction_ids": ";".join(evidence_ids),
-                "threshold": "inbound>=10000 and outbound/inbound>=0.75 and counterparties>=8",
-                "triggered": inbound_amount >= 10_000 and inbound_amount > 0 and outbound_amount / inbound_amount >= 0.75 and unique_counterparties >= 8,
+                "threshold": f"inbound>={thresholds['minimum_inbound_usd']} and outbound/inbound>={thresholds['minimum_outbound_to_inbound_ratio']} and counterparties>={thresholds['minimum_counterparties']}",
+                "triggered": inbound_amount >= thresholds["minimum_inbound_usd"] and inbound_amount > 0 and outbound_amount / inbound_amount >= thresholds["minimum_outbound_to_inbound_ratio"] and unique_counterparties >= thresholds["minimum_counterparties"],
             }
         )
-    return [_result(row, "TM-FLOW-001", "pass_through", "Potential pass-through or account cycling", 4, row["triggered"], customers, as_of, 30) for row in rows]
+    return [_result(row, rule, row["triggered"], customers, as_of, suppression) for row in rows]
 
 
-def _network_hub_rule(txns: pd.DataFrame, customers: pd.DataFrame, as_of: pd.Timestamp) -> list[dict]:
-    window_txns = _window(txns, as_of, 30)
+def _network_hub_rule(txns: pd.DataFrame, customers: pd.DataFrame, as_of: pd.Timestamp, rule: dict, suppression: dict) -> list[dict]:
+    thresholds = rule["thresholds"]
+    window_txns = _window(txns, as_of, rule["lookback_days"])
     counterparty_customer_counts = window_txns.groupby("counterparty_id")["customer_id"].nunique().rename("linked_customer_count")
-    hub_counterparties = set(counterparty_customer_counts[counterparty_customer_counts >= 4].index)
+    hub_counterparties = set(counterparty_customer_counts[counterparty_customer_counts >= thresholds["minimum_linked_customers"]].index)
     hub_txns = window_txns[window_txns["counterparty_id"].isin(hub_counterparties)]
     counts = _aggregate_evidence(hub_txns)
-    return [_result(row, "TM-NET-001", "network", "Shared high-risk counterparty hub", 4, row["evidence_count"] >= 2, customers, as_of, 30) for row in counts.to_dict("records")]
+    return [_result(row, rule, row["evidence_count"] >= thresholds["minimum_customer_evidence_count"], customers, as_of, suppression) for row in counts.to_dict("records")]
 
 
 def _window(txns: pd.DataFrame, as_of: pd.Timestamp, days: int) -> pd.DataFrame:
@@ -139,28 +165,33 @@ def _aggregate_evidence(txns: pd.DataFrame) -> pd.DataFrame:
     ).reset_index()
 
 
-def _result(row: dict, rule_id: str, typology_family: str, reason: str, severity: int, triggered: bool, customers: pd.DataFrame, as_of: pd.Timestamp, window_days: int) -> dict:
+def _result(row: dict, rule: dict, triggered: bool, customers: pd.DataFrame, as_of: pd.Timestamp, suppression: dict) -> dict:
     customer_row = customers[customers["customer_id"] == row["customer_id"]].iloc[0]
-    suppression_applied = bool(triggered and customer_row["behavioral_crr_tier"] == "low" and severity <= 3 and row["evidence_count"] < 5)
+    criteria = suppression["criteria"]
+    severity = int(rule["severity"])
+    suppression_applied = bool(triggered and customer_row["behavioral_crr_tier"] == criteria["behavioral_crr_tier"] and severity <= criteria["maximum_rule_severity"] and row["evidence_count"] < criteria["maximum_evidence_count_exclusive"])
+    window_days = int(rule["lookback_days"])
     observation_start = as_of - pd.Timedelta(days=window_days)
     return {
-        "rule_result_id": _stable_id("RR", rule_id, row["customer_id"], as_of.date().isoformat()),
+        "rule_result_id": _stable_id("RR", rule["rule_id"], row["customer_id"], as_of.date().isoformat()),
         "customer_id": row["customer_id"],
-        "rule_id": rule_id,
+        "rule_id": rule["rule_id"],
         "rule_version": RULE_VERSION,
-        "feature_version": "AML-FEATURES-2.0",
-        "typology_family": typology_family,
+        "rule_set_version": "2.0",
+        "feature_version": "AML-FEATURES-2.1",
+        "typology_family": rule["typology_family"],
         "segment_id": customer_row.get("segment_id", "unassigned"),
         "observation_start": observation_start.isoformat(),
         "observation_end": as_of.isoformat(),
-        "rule_reason": reason,
+        "rule_reason": rule["reason"],
         "rule_severity": severity,
         "customer_eligible": True,
         "transaction_eligible": True,
         "triggered": bool(triggered),
         "raw_trigger_retained": bool(triggered),
         "suppression_applied": suppression_applied,
-        "suppression_policy_id": SUPPRESSION_VERSION if suppression_applied else "",
+        "suppression_policy_id": suppression["suppression_policy_id"] if suppression_applied else "",
+        "suppression_approval_reference": suppression["approval_reference"] if suppression_applied else "",
         "alert_generated": bool(triggered and not suppression_applied),
         "suppression_reason": "low_risk_low_evidence" if suppression_applied else "",
         "evidence_count": int(row["evidence_count"]),

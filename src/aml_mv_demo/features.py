@@ -3,28 +3,32 @@ from __future__ import annotations
 import pandas as pd
 import numpy as np
 
-
-HIGH_RISK_COUNTRIES = {"BR", "MX", "PA"}
-FX_TO_USD = {"USD": 1.0, "CAD": 0.74, "GBP": 1.27}
-MONETARY_STATUSES = {"settled", "reversed", "refund", "chargeback"}
+from aml_mv_demo.config import load_risk_indicator_config
 
 
-def normalize_transactions(transactions: pd.DataFrame) -> pd.DataFrame:
+def normalize_transactions(transactions: pd.DataFrame, risk_indicator_config: dict | None = None) -> pd.DataFrame:
+    risk_config = risk_indicator_config or load_risk_indicator_config()
+    fx_to_usd = risk_config["fx_to_usd"]
+    monetary_statuses = set(risk_config["monetary_statuses"])
+    net_negative_statuses = set(risk_config["net_negative_statuses"])
+    high_risk_countries = set(risk_config["high_risk_countries"])
+
     txns = transactions.copy()
     txns["timestamp_utc"] = pd.to_datetime(txns["timestamp_utc"], utc=True)
-    txns["fx_rate_to_usd"] = txns["currency"].map(FX_TO_USD).fillna(1.0)
+    txns["unknown_currency"] = ~txns["currency"].isin(fx_to_usd.keys())
+    txns["fx_rate_to_usd"] = txns["currency"].map(fx_to_usd).fillna(1.0)
     txns["amount_usd_gross"] = txns["amount"] * txns["fx_rate_to_usd"]
     txns["amount_usd_net"] = txns["amount_usd_gross"]
-    txns.loc[txns["status"].isin(["reversed", "refund", "chargeback"]), "amount_usd_net"] *= -1
-    txns["is_monetary"] = txns["status"].isin(MONETARY_STATUSES)
+    txns.loc[txns["status"].isin(net_negative_statuses), "amount_usd_net"] *= -1
+    txns["is_monetary"] = txns["status"].isin(monetary_statuses)
     txns["is_settled"] = txns["status"] == "settled"
     txns["is_round_amount"] = (txns["amount"] % 100 == 0).astype(int)
-    txns["is_high_risk_geo"] = txns["counterparty_country"].isin(HIGH_RISK_COUNTRIES).astype(int)
+    txns["is_high_risk_geo"] = txns["counterparty_country"].isin(high_risk_countries).astype(int)
     return txns
 
 
-def build_customer_features(transactions: pd.DataFrame, as_of_timestamp: str | pd.Timestamp | None = None, windows_days: tuple[int, ...] = (1, 7, 30, 90)) -> pd.DataFrame:
-    txns = normalize_transactions(transactions)
+def build_customer_features(transactions: pd.DataFrame, as_of_timestamp: str | pd.Timestamp | None = None, windows_days: tuple[int, ...] = (1, 7, 30, 90), risk_indicator_config: dict | None = None) -> pd.DataFrame:
+    txns = normalize_transactions(transactions, risk_indicator_config=risk_indicator_config)
     if as_of_timestamp is None:
         as_of = txns["timestamp_utc"].max()
     else:
@@ -49,7 +53,9 @@ def build_customer_features(transactions: pd.DataFrame, as_of_timestamp: str | p
     numeric_columns = [column for column in features.columns if column != "customer_id"]
     features[numeric_columns] = features[numeric_columns].fillna(0)
     features["as_of_timestamp"] = as_of.isoformat()
-    features["feature_version"] = "AML-FEATURES-2.0"
+    risk_config = risk_indicator_config or load_risk_indicator_config()
+    features["feature_version"] = "AML-FEATURES-2.1"
+    features["risk_indicator_version"] = risk_config["version"]
     return features
 
 

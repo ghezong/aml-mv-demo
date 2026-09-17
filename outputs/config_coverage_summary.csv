@@ -1,0 +1,7 @@
+rule_id,configured,implemented,result_record_count,status
+TM-FLOW-001,True,True,116,matched
+TM-GEO-001,True,True,76,matched
+TM-NET-001,True,True,109,matched
+TM-RAPID-001,True,True,9,matched
+TM-STRUCT-001,True,True,1,matched
+TM-VEL-001,True,True,0,matched

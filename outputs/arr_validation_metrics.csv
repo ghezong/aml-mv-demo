@@ -1,0 +1,7 @@
+metric,value,status
+validation_alert_count,29.0,passed
+validation_label_rate,0.1724,monitor
+top_decile_label_rate,1.0,monitor
+top_decile_lift,5.8,monitor
+score_min,0.0791,passed
+score_max,0.9952,passed

@@ -28,4 +28,4 @@ The demo data is synthetic and intentionally compact. A production data model sh
 
 ## Currency And Time
 
-Amounts are normalized to USD using static demo FX rates in code. Production implementation requires approved FX source, effective timestamp, and controls for conversion failures. Timestamps are converted to UTC, and production implementations should preserve source timezone and local business date when required.
+Amounts are normalized to USD using static demo FX rates in [config/risk_indicators.json](../config/risk_indicators.json). Production implementation requires an approved FX source, effective timestamp, and controls for conversion failures. Timestamps are converted to UTC, and production implementations should preserve source timezone and local business date when required.

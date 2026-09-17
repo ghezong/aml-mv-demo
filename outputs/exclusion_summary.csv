@@ -1,0 +1,7 @@
+exclusion_reason,status,transaction_count
+included_rule_population,settled,3103
+non_rule_eligible_status,chargeback,73
+non_rule_eligible_status,failed,200
+non_rule_eligible_status,pending,210
+non_rule_eligible_status,refund,126
+non_rule_eligible_status,reversed,114

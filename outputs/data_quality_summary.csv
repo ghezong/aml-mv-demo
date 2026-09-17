@@ -1,5 +1,11 @@
 control_id,control,passed,exception_count
+DQ-SCHEMA-001,required_transaction_columns_present,True,0
 DQ-CUST-001,customer_id_not_null,True,0
 DQ-ACCT-001,account_customer_referential_integrity,True,0
 DQ-TXN-001,transaction_account_referential_integrity,True,0
 DQ-TXN-002,positive_transaction_amounts,True,0
+DQ-TXN-003,transaction_id_unique,True,0
+DQ-TXN-004,timestamp_parseable,True,0
+DQ-TXN-005,status_valid,True,0
+DQ-TXN-006,known_currency,True,0
+DQ-TXN-007,counterparty_present,True,0

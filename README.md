@@ -29,8 +29,8 @@ This demo shows how to structure an AML rule engine validation program that inde
 2. Compute activation and behavioral CRR with reason codes.
 3. Build point-in-time customer and transaction features.
 4. Execute deterministic AML rules with separate eligibility, trigger, suppression, and alert decision fields.
-5. Train a simple ML ARR model on synthetic alert outcomes to prioritize alerts without autonomously closing regulatory alerts.
-6. Validate outputs through unit tests, independent replication checks, lineage fields, and governance documentation.
+5. Train a simple ML ARR model on synthetic alert outcomes and score a holdout validation alert population without autonomously closing regulatory alerts.
+6. Validate outputs through unit tests, separately coded rule replication, config coverage checks, lineage fields, exclusion summaries, and governance documentation.
 
 ## Quickstart
 
@@ -42,7 +42,7 @@ python scripts\run_demo.py
 pytest
 ```
 
-The demo writes generated outputs to `outputs/`, including CRR results, rule results, alerts, and ML-scored alerts.
+The demo writes generated outputs to `outputs/`, including CRR results, rule results, alerts, ML model frames, holdout scored alerts, data-quality checks, exclusion summaries, config coverage, rule reconciliation, ARR validation metrics, and a run manifest.
 
 ## Core Design Choices
 
@@ -53,11 +53,12 @@ The demo writes generated outputs to `outputs/`, including CRR results, rule res
 | ML ARR ranks generated alerts | Improves prioritization while keeping human review |
 | Below-the-line retention | Supports false-negative and suppression testing |
 | Point-in-time features | Reduces leakage and improves reproducibility |
+| Config-driven assumptions | Makes rules, suppressions, risk lists, and FX assumptions auditable |
 | Rule/model version fields | Supports audit, rollback, and examiner evidence |
 
 ## AI/ML Used
 
-The ML ARR component uses a transparent logistic regression classifier trained on synthetic investigator outcome labels. It is intentionally simple and explainable for model validation demonstration purposes. The model produces alert risk scores, priority bands, and top contributing features. It is not intended to represent a production-ready typology discovery model.
+The ML ARR component uses a transparent NumPy logistic classifier trained on synthetic investigator outcome labels and evaluated on a holdout alert population. It is intentionally simple and explainable for model validation demonstration purposes. The model produces alert risk scores, priority bands, and business reason codes. It is not intended to represent a production-ready typology discovery model or a regulatory performance claim.
 
 ## Results Demonstrated
 
@@ -66,8 +67,8 @@ The runnable demo produces evidence for:
 - CRR score and reason-code generation
 - TM rule triggering and suppression traceability
 - Alert consolidation by customer and rule family
-- ML-based alert ranking with calibrated score bands
-- Validation tests for rule boundaries, reproducibility, and leakage controls
+- ML-based alert ranking on a validation population with basic lift and score-range metrics
+- Validation tests for rule boundaries, evidence-level independent replication, reproducibility, config coverage, DQ controls, and leakage controls
 - Governance-ready documentation structure
 
 Because this is synthetic data, results are illustrative and should not be interpreted as regulatory conclusions or production performance claims.
@@ -78,7 +79,7 @@ Because this is synthetic data, results are illustrative and should not be inter
 - Validate actual source-to-target mappings and production code paths independently.
 - Perform historical replay over mature production outcomes.
 - Conduct deeper false-negative analysis using below-the-line populations and QA-confirmed cases.
-- Expand model validation to include stability, fairness, calibration, drift, and challenger models by segment.
+- Expand model validation to include stronger calibration, fairness, drift, challenger models, and segment-level stability.
 - Integrate case-management workflow evidence and investigator QA results directly into governed feedback loops.
 
 ## Confidentiality Note

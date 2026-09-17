@@ -1,6 +1,6 @@
 # AML Rulebook
 
-This rulebook defines the synthetic scenarios implemented in the demo. Thresholds are illustrative and must not be used as production recommendations.
+This rulebook defines the synthetic scenarios implemented in the demo. The controlling demo configuration is [config/rules.json](../config/rules.json), with shared risk indicators in [config/risk_indicators.json](../config/risk_indicators.json) and suppression policy in [config/suppressions.json](../config/suppressions.json). Thresholds are illustrative and must not be used as production recommendations.
 
 | Rule ID | Typology | Risk Statement | Window | Trigger | Suppression | Evidence |
 |---|---|---|---|---|---|---|
@@ -17,4 +17,4 @@ Each production rule should maintain: rule identifier, version, typology, risk s
 
 ## Independent Replication Requirement
 
-The validation function `reconcile_rule_results` compares primary rule results with independently replicated results across trigger, alert, and suppression fields. A production validation should implement a separately coded replication, reconcile population counts, and sample evidence at the transaction level.
+The validation function `reconcile_rule_results` compares primary rule results with separately coded replicated results across trigger, alert, suppression, evidence count, and evidence transaction ID fields. The demo replication code lives in `src/aml_mv_demo/replication.py`. A production validation should additionally reconcile population counts to source-system control totals and sample evidence at the transaction level.

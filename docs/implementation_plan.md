@@ -86,8 +86,8 @@ See [governance.md](governance.md).
 | Data | Build traceable canonical inputs | Reconciled CDEs |
 | Features | Create governed feature catalog | Point-in-time reproducibility |
 | CRR | Build activation and behavioral ratings | Explainable score outputs |
-| TM rules | Implement deterministic scenarios | Rule outputs independently replicated |
-| ML ARR | Rank alerts for human review | Validated performance and fallback |
+| TM rules | Implement deterministic scenarios | Rule outputs separately replicated at evidence level |
+| ML ARR | Rank alerts for human review | Holdout validation metrics and fallback documented |
 | Workflow | Route and investigate alerts | UAT-approved case journey |
 | Monitoring | Produce MI and escalation | Dashboard thresholds assigned |
 | Validation | Challenge implementation | Findings closed or accepted |

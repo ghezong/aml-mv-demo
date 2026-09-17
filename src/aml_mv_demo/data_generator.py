@@ -87,16 +87,24 @@ def generate_synthetic_data(seed: int = 42) -> tuple[pd.DataFrame, pd.DataFrame,
             )
 
     transactions_df = pd.DataFrame(transactions).sort_values("timestamp_utc").reset_index(drop=True)
-    outcomes = pd.DataFrame(
-        {
-            "customer_id": customers["customer_id"],
-            "confirmed_suspicious": customers["customer_id"].isin(risky_customers).astype(int),
-            "sar_referral": customers["customer_id"].isin(set(risky_customers[:8])).astype(int),
-            "qa_confirmed": customers["customer_id"].isin(set(risky_customers[:12])).astype(int),
-            "outcome_date": "2026-04-30",
-            "label_maturity_days": 45,
-        }
-    )
+    outcome_rows = []
+    for customer_id in customers["customer_id"]:
+        injected_signal = customer_id in risky_customers
+        base_probability = 0.08 + (0.55 if injected_signal else 0.0)
+        confirmed_suspicious = int(rng.random() < min(base_probability, 0.9))
+        sar_referral = int(confirmed_suspicious and rng.random() < 0.55)
+        qa_confirmed = int((confirmed_suspicious or injected_signal) and rng.random() < 0.65)
+        outcome_rows.append(
+            {
+                "customer_id": customer_id,
+                "confirmed_suspicious": confirmed_suspicious,
+                "sar_referral": sar_referral,
+                "qa_confirmed": qa_confirmed,
+                "outcome_date": (pd.Timestamp("2026-04-15") + pd.Timedelta(days=int(rng.integers(0, 35)))).date().isoformat(),
+                "label_maturity_days": int(rng.choice([30, 45, 60], p=[0.25, 0.5, 0.25])),
+            }
+        )
+    outcomes = pd.DataFrame(outcome_rows)
     return customers, accounts, transactions_df, outcomes
 
 

@@ -36,6 +36,22 @@ def build_training_frame(alerts: pd.DataFrame, behavioral_crr: pd.DataFrame, fea
     return frame
 
 
+def split_training_validation(frame: pd.DataFrame, validation_fraction: float = 0.35, seed: int = 42) -> tuple[pd.DataFrame, pd.DataFrame]:
+    if frame.empty:
+        raise ValueError("ML ARR split requires at least one alert record")
+    customers = pd.Series(frame["customer_id"].unique()).sample(frac=1, random_state=seed).tolist()
+    validation_count = max(1, int(len(customers) * validation_fraction)) if len(customers) > 1 else 0
+    validation_customers = set(customers[:validation_count])
+    validation = frame[frame["customer_id"].isin(validation_customers)].copy()
+    development = frame[~frame["customer_id"].isin(validation_customers)].copy()
+    if development.empty or validation.empty or development["label"].nunique() < 2:
+        sorted_frame = frame.sort_values(["observation_end", "customer_id", "alert_id"]).reset_index(drop=True)
+        split_index = max(1, int(len(sorted_frame) * (1 - validation_fraction)))
+        development = sorted_frame.iloc[:split_index].copy()
+        validation = sorted_frame.iloc[split_index:].copy()
+    return development, validation
+
+
 def train_arr_model(training_frame: pd.DataFrame) -> SimpleARRModel:
     if training_frame.empty:
         raise ValueError("ML ARR training requires at least one alert record")
@@ -80,6 +96,26 @@ def score_alerts(model: SimpleARRModel, scoring_frame: pd.DataFrame) -> pd.DataF
     scored["ml_model_version"] = "ML-ARR-LR-1.0"
     scored["ml_reason_codes"] = scored.apply(_reason_codes, axis=1)
     return scored
+
+
+def evaluate_arr_model(scored_validation: pd.DataFrame) -> pd.DataFrame:
+    if scored_validation.empty:
+        return pd.DataFrame([{"metric": "validation_alert_count", "value": 0, "status": "breach"}])
+    scored = scored_validation.sort_values("ml_arr_score", ascending=False).copy()
+    label_rate = float(scored["label"].mean()) if "label" in scored else 0.0
+    top_decile_count = max(1, int(len(scored) * 0.1))
+    top_decile_rate = float(scored.head(top_decile_count)["label"].mean()) if "label" in scored else 0.0
+    lift = top_decile_rate / label_rate if label_rate else 0.0
+    return pd.DataFrame(
+        [
+            {"metric": "validation_alert_count", "value": len(scored), "status": "passed"},
+            {"metric": "validation_label_rate", "value": round(label_rate, 4), "status": "monitor"},
+            {"metric": "top_decile_label_rate", "value": round(top_decile_rate, 4), "status": "monitor"},
+            {"metric": "top_decile_lift", "value": round(lift, 4), "status": "monitor"},
+            {"metric": "score_min", "value": round(float(scored["ml_arr_score"].min()), 4), "status": "passed"},
+            {"metric": "score_max", "value": round(float(scored["ml_arr_score"].max()), 4), "status": "passed"},
+        ]
+    )
 
 
 def _reason_codes(row: pd.Series) -> str:

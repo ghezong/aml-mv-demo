@@ -1,0 +1,14 @@
+{
+  "risk_indicator_set_id": "AML_RISK_INDICATORS_SYNTHETIC",
+  "version": "1.0",
+  "effective_start": "2026-01-01",
+  "high_risk_countries": ["BR", "MX", "PA"],
+  "fx_to_usd": {
+    "USD": 1.0,
+    "CAD": 0.74,
+    "GBP": 1.27
+  },
+  "monetary_statuses": ["settled", "reversed", "refund", "chargeback"],
+  "net_negative_statuses": ["reversed", "refund", "chargeback"],
+  "rule_eligible_statuses": ["settled"]
+}

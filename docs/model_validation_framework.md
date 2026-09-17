@@ -7,9 +7,9 @@ This framework covers deterministic TM rules, CRR methodologies, ML ARR models, 
 | Objective | Evidence |
 |---|---|
 | Confirm conceptual soundness | Methodology review, typology mapping, assumption inventory |
-| Confirm implementation accuracy | Independent rule replication, code/config reconciliation, unit tests |
-| Confirm data integrity | Source-to-target reconciliation, CDE controls, lineage checks |
-| Confirm performance | Trigger rates, alert productivity, false-negative review, ML ranking metrics |
+| Confirm implementation accuracy | Separately coded rule replication, code/config reconciliation, unit tests |
+| Confirm data integrity | Source-to-target reconciliation, CDE controls, exclusion summaries, lineage checks |
+| Confirm performance | Trigger rates, alert productivity, false-negative review, holdout ML ranking metrics |
 | Confirm governance | Inventory, approvals, change tickets, effective dating, monitoring ownership |
 
 ## Deterministic Rule Validation
@@ -32,7 +32,7 @@ This framework covers deterministic TM rules, CRR methodologies, ML ARR models, 
 | Labels | Review taxonomy, hierarchy, maturity, QA controls, and noise |
 | Sampling | Assess historical suppression and uninvestigated population bias |
 | Features | Confirm point-in-time availability and prohibited feature exclusion |
-| Performance | Precision-recall, lift/gain, calibration, stability, and segment performance |
+| Performance | Holdout lift/gain, score-range checks, and documented limits; production should add precision-recall, calibration, stability, and segment performance |
 | Explainability | Review reason codes and coefficient/sign plausibility |
 | Fairness/proxy risk | Assess sensitive and proxy attributes where legally permitted |
 | Monitoring | Drift, feature availability, score distribution, degradation triggers |
@@ -40,4 +40,4 @@ This framework covers deterministic TM rules, CRR methodologies, ML ARR models, 
 
 ## Evidence Package
 
-The examiner-ready package should include scope, methodology, data dictionary, feature catalog, rulebook, test scripts, test results, reconciliation outputs, tuning analysis, validation findings, approval records, monitoring thresholds, and production run manifests.
+The examiner-ready package should include scope, methodology, data dictionary, feature catalog, rulebook, test scripts, test results, reconciliation outputs, exclusion summaries, configuration coverage, tuning analysis, validation findings, approval records, monitoring thresholds, and production run manifests.

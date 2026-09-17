@@ -6,14 +6,34 @@
     {
       "rule_id": "TM-STRUCT-001",
       "typology_family": "threshold_avoidance",
+      "reason": "Potential threshold avoidance",
       "lookback_days": 7,
       "thresholds": {"lower_usd": 9000, "upper_usd": 10000, "minimum_count": 2},
       "severity": 4,
       "status": "demo_active"
     },
     {
+      "rule_id": "TM-VEL-001",
+      "typology_family": "velocity",
+      "reason": "Unusual 24-hour transaction velocity",
+      "lookback_days": 1,
+      "thresholds": {"minimum_count": 8},
+      "severity": 3,
+      "status": "demo_active"
+    },
+    {
+      "rule_id": "TM-GEO-001",
+      "typology_family": "high_risk_geography",
+      "reason": "Higher-risk geography exposure",
+      "lookback_days": 30,
+      "thresholds": {"minimum_count": 4},
+      "severity": 3,
+      "status": "demo_active"
+    },
+    {
       "rule_id": "TM-RAPID-001",
       "typology_family": "rapid_movement",
+      "reason": "Rapid movement of funds",
       "lookback_days": 3,
       "thresholds": {"minimum_inbound_usd": 5000, "minimum_outbound_to_inbound_ratio": 0.8},
       "severity": 5,
@@ -22,8 +42,18 @@
     {
       "rule_id": "TM-FLOW-001",
       "typology_family": "pass_through",
+      "reason": "Potential pass-through or account cycling",
       "lookback_days": 30,
       "thresholds": {"minimum_inbound_usd": 10000, "minimum_counterparties": 8, "minimum_outbound_to_inbound_ratio": 0.75},
+      "severity": 4,
+      "status": "demo_active"
+    },
+    {
+      "rule_id": "TM-NET-001",
+      "typology_family": "network",
+      "reason": "Shared high-risk counterparty hub",
+      "lookback_days": 30,
+      "thresholds": {"minimum_linked_customers": 4, "minimum_customer_evidence_count": 2},
       "severity": 4,
       "status": "demo_active"
     }

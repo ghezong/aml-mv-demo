@@ -1,0 +1,13 @@
+{
+  "run_id": "DEMO-RUN-2026-03-31",
+  "as_of_timestamp": "2026-03-31T23:59:59Z",
+  "rule_set_id": "AML_TM_SYNTHETIC_RULE_SET",
+  "rule_set_version": "2.0",
+  "suppression_policy_id": "SUP-LOW-RISK-1.0",
+  "risk_indicator_set_id": "AML_RISK_INDICATORS_SYNTHETIC",
+  "risk_indicator_version": "1.0",
+  "feature_version": "AML-FEATURES-2.1",
+  "rule_engine_version": "TM-RULES-2.1",
+  "ml_model_version": "ML-ARR-LR-1.0",
+  "synthetic_seed": 42
+}
